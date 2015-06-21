@@ -14,17 +14,17 @@ API
 resolve()
 ---------
 
-  var info = resolve($PackageUri, $ModuleUri);
-  console.log(info);
+    var info = resolve($PackageUri, $ModuleUri);
+    console.log(info);
 
 **NOTE:** The `resolve` method is *synchronous* as it should be abstracted/optimized away before the code hits the runtime by pre-loading any referenced dependencies. For resolving optional dependencies use `resolve.async()`.
 
 resolve.async()
 ---------------
 
-  resolve.async($PackageUri, $ModuleUri).then(function info() {
-    console.log(info);
-  });
+    resolve.async($PackageUri, $ModuleUri).then(function info() {
+      console.log(info);
+    });
 
 
 resolve.on("<event>", function handler() {})
