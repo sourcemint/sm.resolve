@@ -1,5 +1,6 @@
 {
   "name": "sm.resolve",
+  "version": "0.1.0",
   "main": "sm.resolve",
   "dependencies": {
     "q": "^1.4.1"
