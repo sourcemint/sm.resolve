@@ -72,19 +72,19 @@ function lookup (origin, from, packageUri, moduleUri) {
 			if (packageFound()) return;
 
 			function checkBase (basePath) {
+				if (packageFound()) return;
 				var path = PATH.join(basePath, packageUri);
 				if (FS.existsSync(path)) {
 					return foundPackage(path);
 				}
 			}
+			checkBase(basePath);
 			if (subs) {
 				for (var i=0,l=subs.length; i<l; i++) {
 					if (checkBase(PATH.join(basePath, subs[i]))) {
 						return;
 					}
 				}
-			} else {
-				checkBase(basePath);
 			}
 		}
 
@@ -146,18 +146,24 @@ function lookup (origin, from, packageUri, moduleUri) {
 
 		// TODO: Make '.deps' configurable
 		if (process.env.PGS_WORKSPACE_ROOT) {
-			findPackageInGlobalBase(PATH.join(process.env.PGS_WORKSPACE_ROOT, ".deps"));
+			findPackageInGlobalBase(PATH.join(process.env.PGS_WORKSPACE_ROOT, ".deps"), false, [
+				"node_modules"
+			]);
 		}
 
 		// 4.5) Check in 'from'
 
 		if (!packageFound() && info.from) {
-			findPackageInGlobalBase(PATH.join(info.origin, info.from), true);
+			findPackageInGlobalBase(PATH.join(info.origin, info.from), true, [
+				"node_modules"
+			]);
 		}
 
 		// 4.6) Check in 'origin'
 
-		findPackageInGlobalBase(info.origin, true);
+		findPackageInGlobalBase(info.origin, true, [
+			"node_modules"
+		]);
 
 		// ##################################################
 		// # 5) **Fallback** uris reference *Virtual Source-Space* modules.
