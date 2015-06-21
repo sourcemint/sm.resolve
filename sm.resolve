@@ -1,0 +1,319 @@
+#!/usr/bin/env node
+
+const PATH = require("path");
+const FS = require("fs");
+
+
+function formatLogArgs (args) {
+	var allStrings = true;
+	args.forEach(function (arg) {
+		if (!allStrings) return;
+		if (typeof arg !== "string") {
+			allStrings = false;
+		}
+	});
+	if (allStrings) {
+		return args.join(" ");
+	}
+	return (args.length > 1 ? args : args[0]);
+}
+
+function log () {
+	if (!process.env.VERBOSE) return;
+	var args = Array.prototype.slice.call(arguments);
+	console.log.call(console, "[sm.resolve]", formatLogArgs(args));
+}
+
+function findPackageRoot (path) {
+	if (FS.existsSync(PATH.join(path, "package.json"))) {
+		return path;
+	}
+	var newPath = PATH.dirname(path);
+	if (newPath === path) {
+		return null;
+	}
+	return findPackageRoot(newPath);
+}
+
+function lookup (origin, from, packageUri, moduleUri) {
+
+	var info = {
+		"origin": origin,
+		"from": from,
+		"find": {
+			"package": packageUri,
+			"module": moduleUri
+		},
+		"found": {}
+	};
+
+	if (process.env.VERBOSE) {
+		process.stdout.write("\n\n");
+	}
+	log("Info before", info);
+
+
+	function foundPackage (path) {
+		info.found.package = PATH.relative(origin, path);
+		if (!info.found.package) info.found.package += ".";
+		return info.found.package;
+	}
+
+	function packageFound () {
+		return !!(info.found.package);
+	}
+
+	function forPackageUri (packageUri) {
+		if (packageFound()) return;
+
+		log("forPackageUri", packageUri);
+
+		function testPackageRepoSubs (basePath, subs) {
+			if (packageFound()) return;
+
+			function checkBase (basePath) {
+				var path = PATH.join(basePath, packageUri);
+				if (FS.existsSync(path)) {
+					return foundPackage(path);
+				}
+			}
+			if (subs) {
+				for (var i=0,l=subs.length; i<l; i++) {
+					if (checkBase(PATH.join(basePath, subs[i]))) {
+						return;
+					}
+				}
+			} else {
+				checkBase(basePath);
+			}
+		}
+
+		// ##################################################
+		// # 1) **Overrides** are mappings that swap out *Source-Space* implementations in the *Runtime-Space*
+		// ##################################################
+
+		// TODO: Implement
+
+		// ##################################################
+		// # 2) **Relative** uris reference *Inside Source-Space* modules.
+		// ##################################################
+
+		// TODO: Implement
+
+		// ##################################################
+		// # 3) **Aliased** uris reference *Mapped External Source-Space* modules.
+		// ##################################################
+
+		// TODO: Implement
+
+		// ##################################################
+		// # 4) **Global** uris reference *Common Source-Space* modules.
+		// ##################################################
+
+		function findPackageInGlobalBase (basePath, upverse, subs) {
+			if (!basePath) return;
+			if (packageFound()) return;
+
+			// Bypass repeat access
+			if (!findPackageInGlobalBase.paths) findPackageInGlobalBase.paths = {};
+			if (findPackageInGlobalBase.paths[basePath]) return;
+			findPackageInGlobalBase.paths[basePath] = true;
+
+			testPackageRepoSubs(basePath, subs);
+
+			if (upverse && !packageFound()) {
+				// TODO: Make '.deps' configurable
+				findPackageInGlobalBase(findPackageRoot(PATH.dirname(basePath)), upverse, [
+					".deps",
+					"node_modules"
+				]);
+			}
+		}
+
+		// 4.1) Check in 'PGS_PACKAGES_DIRPATH'
+
+		findPackageInGlobalBase(process.env.PGS_PACKAGES_DIRPATH);
+
+		// 4.2) Check in 'BO_PACKAGES_DIR'
+
+		findPackageInGlobalBase(process.env.BO_PACKAGES_DIR);
+
+		// 4.3) Check in 'BO_SYSTEM_CACHE_DIR'
+
+		findPackageInGlobalBase(process.env.BO_SYSTEM_CACHE_DIR);
+
+		// 4.4) Check in 'PGS_WORKSPACE_ROOT'
+
+		// TODO: Make '.deps' configurable
+		if (process.env.PGS_WORKSPACE_ROOT) {
+			findPackageInGlobalBase(PATH.join(process.env.PGS_WORKSPACE_ROOT, ".deps"));
+		}
+
+		// 4.5) Check in 'from'
+
+		if (!packageFound() && info.from) {
+			findPackageInGlobalBase(PATH.join(info.origin, info.from), true);
+		}
+
+		// 4.6) Check in 'origin'
+
+		findPackageInGlobalBase(info.origin, true);
+
+		// ##################################################
+		// # 5) **Fallback** uris reference *Virtual Source-Space* modules.
+		// ##################################################
+
+		// TODO: Implement
+
+	}
+
+	// github.com~pinf~org.pinf.lib~0/source/installed/master
+	forPackageUri(packageUri);
+
+	// .deps/github.com~pinf~org.pinf.lib~0/source/installed/master
+	if (!packageFound() && /^\.deps\//.test(packageUri)) {
+		forPackageUri(packageUri.replace(/^\.deps\//, ""));
+	}
+
+	if (!packageFound()) {
+		var packageUriParts = packageUri.replace(/\//g, "~").split("~");
+
+		// github.com~pinf~org.pinf.lib/0.1.4
+		// github.com/pinf/org.pinf.lib/0.1.4
+		var version = packageUriParts[packageUriParts.length-1];
+		var uri = packageUriParts.slice(0, packageUriParts.length-1).join("~");
+		forPackageUri(uri + "~" + version.split(".").shift() + "/source/installed/master");
+		forPackageUri(uri + "~" + version.split(".").shift() + "/source/snapshot/" + version);
+
+		// github.com/pinf/org.pinf.lib
+		// github.com~pinf~org.pinf.lib
+		var uri = packageUriParts.join("~");
+		forPackageUri(uri + "~0/source/installed/master");
+	}
+
+	if (
+		!packageFound() &&
+		!/\//.test(packageUri)
+	) {
+		var packageUriParts = packageUri.split("@");
+		if (packageUriParts.length <= 2) {
+
+			// org.pinf.lib
+			// org.pinf.lib@0.1.4
+			var version = (packageUriParts.length === 2) ? packageUriParts[1] : "0.0.0";
+			forPackageUri(packageUriParts[0] + "~" + version.split(".").shift());
+			forPackageUri(packageUriParts[0]);
+		}
+	}
+
+
+	function foundModule (path) {
+		info.found.module = PATH.relative(PATH.join(origin, info.found.package), path);
+		if (!info.found.module) info.found.module += ".";
+		return info.found.module;
+	}
+
+	function moduleFound () {
+		return !!(info.found.module);
+	}
+
+	function forModuleUri (moduleUri) {
+
+		var packageBasePath = PATH.join(origin, info.found.package);
+
+		log("forModuleUri", moduleUri, packageBasePath);
+
+		function testModulExtensions (moduleUri, exts) {
+			if (moduleFound()) return;
+
+			function checkUri (moduleUri) {
+				var path = PATH.join(packageBasePath, moduleUri);
+				if (FS.existsSync(path)) {
+					return foundModule(path);
+				}
+			}
+			if (exts) {
+				for (var i=0,l=exts.length; i<l; i++) {
+					if (checkUri(moduleUri + exts[i])) {
+						return;
+					}
+				}
+			} else {
+				checkUri(moduleUri);
+			}
+		}
+
+		testModulExtensions(moduleUri);
+		if (!moduleFound()) {
+			testModulExtensions(moduleUri, [
+				".js"
+			]);
+		}
+	}
+
+	if (
+		packageFound() &&
+		moduleUri
+	) {	
+		// component
+		// component.js
+		forModuleUri(moduleUri);
+		forModuleUri(PATH.join("lib", moduleUri));
+	}
+
+	log("Info after", info);
+
+	return info;
+}
+
+
+exports.for = function (module) {
+
+	const PATH = require("path");
+
+	var origin = process.cwd();
+	var from = PATH.relative(origin, module.filename);
+	if (!from) from += ".";
+
+
+	var resolve = function (packageUri, moduleUri) {
+
+		return lookup(
+			origin,
+			from,
+			packageUri,
+			moduleUri
+		);
+	}
+
+
+	resolve.async = function (packageUri, moduleUri) {
+
+		const Q = require("q");
+
+		return Q.resolve(resolve(packageUri, moduleUri));
+	}
+
+
+	return resolve;
+}
+
+
+if (require.main === module) {
+
+	var info = exports.for({
+		filename: process.cwd()
+	})(process.argv[2], process.argv[3]);
+
+	if (info.found.package) {
+		if (info.found.module) {
+			process.stdout.write(info.found.package + " : " + info.found.module + "\n");
+		} else {
+			process.stdout.write(info.found.package + "\n");
+		}
+		process.exit(0);
+	} else {
+		process.exit(1);
+	}
+}
+

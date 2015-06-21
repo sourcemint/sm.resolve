@@ -1,0 +1,48 @@
+#!/bin/bash
+# Source https://github.com/cadorn/bash.origin
+. "$HOME/.bash.origin"
+function init {
+	eval BO_SELF_BASH_SOURCE="$BO_READ_SELF_BASH_SOURCE"
+	BO_deriveSelfDir ___TMP___ "$BO_SELF_BASH_SOURCE"
+	local __BO_DIR__="$___TMP___"
+
+
+	function resolve {
+		"$__BO_DIR__/sm.resolve" $@
+	}
+
+	function runJSTests {
+		pushd "$__BO_DIR__" > /dev/null
+			"$__BO_DIR__/node_modules/.bin/mocha" --reporter list test.js
+		popd > /dev/null
+	}
+
+	function runBashTests {
+
+		pushd "$__BO_DIR__" > /dev/null
+
+			resolve "org.pinf.lib"
+			resolve "org.pinf.lib@0.1.4"
+
+			resolve "github.com/pinf/org.pinf.lib"
+			resolve "github.com/pinf/org.pinf.lib/0.1.4"
+
+			resolve "github.com~pinf~org.pinf.lib"
+			resolve "github.com~pinf~org.pinf.lib/0.1.4"
+
+			resolve "github.com~pinf~org.pinf.lib~0/source/installed/master"
+			resolve ".deps/github.com~pinf~org.pinf.lib~0/source/installed/master"
+
+			resolve "org.pinf.lib" "component"
+			resolve "org.pinf.lib" "component.js"
+			resolve "org.pinf.lib" "lib/component"
+			resolve "org.pinf.lib" "lib/component.js"
+
+		popd > /dev/null
+	}
+
+	runJSTests
+	runBashTests
+
+}
+init $@

@@ -1,0 +1,14 @@
+{
+  "name": "sm.resolve",
+  "main": "sm.resolve",
+  "dependencies": {
+    "q": "^1.4.1"
+  },
+  "devDependencies": {
+	"bash.origin": "0.1.x",
+    "mocha": "^2.2.5"
+  },
+  "scripts": {
+  	"test": "./test"
+  }
+}
