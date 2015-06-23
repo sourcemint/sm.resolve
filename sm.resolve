@@ -1,8 +1,24 @@
 #!/usr/bin/env node
+/*
+
+Notes:
+
+	* Only finds paths that actually exist. It thus deals with a manifested space
+	  and is not suitable to model spaces that need to be created.
+
+*/
 
 const PATH = require("path");
 const FS = require("fs");
+const EXTEND = require("extend");
 
+
+const SCOPE = {
+	ALL: "all",
+	SYSTEMS: "systems",
+	SYSTEM: "system",
+	WORKSPACE: "workspace"
+};
 
 function formatLogArgs (args) {
 	var allStrings = true;
@@ -35,12 +51,16 @@ function findPackageRoot (path) {
 	return findPackageRoot(newPath);
 }
 
-function lookup (origin, from, packageUri, moduleUri) {
+function lookup (origin, from, packageUri, moduleUri, options) {
+
+	options = options || {};
+	options.scope = options.scope || "all";
 
 	var info = {
 		"origin": origin,
 		"from": from,
 		"find": {
+			"scope": options.scope,
 			"package": packageUri,
 			"module": moduleUri
 		},
@@ -52,6 +72,14 @@ function lookup (origin, from, packageUri, moduleUri) {
 	}
 	log("Info before", info);
 
+	var scopes = {};
+	if (options.scope === SCOPE.ALL) {
+		scopes[SCOPE.SYSTEMS] = true;
+		scopes[SCOPE.SYSTEM] = true;
+		scopes[SCOPE.WORKSPACE] = true;
+	} else {
+		scopes[options.scope] = true;
+	}
 
 	function foundPackage (path) {
 		info.found.package = PATH.relative(origin, path);
@@ -139,23 +167,23 @@ function lookup (origin, from, packageUri, moduleUri) {
 
 		// 4.1) Check in 'PGS_PACKAGES_DIRPATH'
 
-		findPackageInGlobalBase(process.env.PGS_PACKAGES_DIRPATH);
+		if (scopes[SCOPE.SYSTEM]) findPackageInGlobalBase(process.env.PGS_PACKAGES_DIRPATH);
 
 		// 4.2) Check in 'BO_PACKAGES_DIR'
 
-		findPackageInGlobalBase(process.env.BO_PACKAGES_DIR);
+		if (scopes[SCOPE.SYSTEM]) findPackageInGlobalBase(process.env.BO_PACKAGES_DIR);
 
 		// 4.3) Check in 'BO_SYSTEM_CACHE_DIR'
 
-		findPackageInGlobalBase(process.env.BO_SYSTEM_CACHE_DIR);
+		if (scopes[SCOPE.SYSTEM]) findPackageInGlobalBase(process.env.BO_SYSTEM_CACHE_DIR);
 
 		// 4.4) Check in 'BO_GLOBAL_SYSTEM_CACHE_DIR'
 
-		findPackageInGlobalBase(process.env.BO_GLOBAL_SYSTEM_CACHE_DIR);
+		if (scopes[SCOPE.SYSTEMS]) findPackageInGlobalBase(process.env.BO_GLOBAL_SYSTEM_CACHE_DIR);
 
 		// 4.5) Check in 'PGS_WORKSPACE_ROOT'
 
-		if (process.env.PGS_WORKSPACE_ROOT) {
+		if (scopes[SCOPE.WORKSPACE] && process.env.PGS_WORKSPACE_ROOT) {
 			// TODO: Make '.deps' configurable
 			findPackageInGlobalBase(PATH.join(process.env.PGS_WORKSPACE_ROOT, ".deps"), false, [
 				"node_modules"
@@ -184,43 +212,47 @@ function lookup (origin, from, packageUri, moduleUri) {
 
 	}
 
-	// github.com~pinf~org.pinf.lib~0/source/installed/master
-	forPackageUri(packageUri);
+	if (packageUri) {
 
-	// .deps/github.com~pinf~org.pinf.lib~0/source/installed/master
-	if (!packageFound() && /^\.deps\//.test(packageUri)) {
-		forPackageUri(packageUri.replace(/^\.deps\//, ""));
-	}
+		// github.com~pinf~org.pinf.lib~0/source/installed/master
+		forPackageUri(packageUri);
 
-	if (!packageFound()) {
-		var packageUriParts = packageUri.replace(/\//g, "~").split("~");
-
-		// github.com~pinf~org.pinf.lib/0.1.4
-		// github.com/pinf/org.pinf.lib/0.1.4
-		var version = packageUriParts[packageUriParts.length-1];
-		var uri = packageUriParts.slice(0, packageUriParts.length-1).join("~");
-		forPackageUri(uri + "~" + version.split(".").shift() + "/source/installed/master");
-		forPackageUri(uri + "~" + version.split(".").shift() + "/source/snapshot/" + version);
-
-		// github.com/pinf/org.pinf.lib
-		// github.com~pinf~org.pinf.lib
-		var uri = packageUriParts.join("~");
-		forPackageUri(uri + "~0/source/installed/master");
-	}
-
-	if (
-		!packageFound() &&
-		!/\//.test(packageUri)
-	) {
-		var packageUriParts = packageUri.split("@");
-		if (packageUriParts.length <= 2) {
-
-			// org.pinf.lib
-			// org.pinf.lib@0.1.4
-			var version = (packageUriParts.length === 2) ? packageUriParts[1] : "0.0.0";
-			forPackageUri(packageUriParts[0] + "~" + version.split(".").shift());
-			forPackageUri(packageUriParts[0]);
+		// .deps/github.com~pinf~org.pinf.lib~0/source/installed/master
+		if (!packageFound() && /^\.deps\//.test(packageUri)) {
+			forPackageUri(packageUri.replace(/^\.deps\//, ""));
 		}
+
+		if (!packageFound()) {
+			var packageUriParts = packageUri.replace(/\//g, "~").split("~");
+
+			// github.com~pinf~org.pinf.lib/0.1.4
+			// github.com/pinf/org.pinf.lib/0.1.4
+			var version = packageUriParts[packageUriParts.length-1];
+			var uri = packageUriParts.slice(0, packageUriParts.length-1).join("~");
+			forPackageUri(uri + "~" + version.split(".").shift() + "/source/installed/master");
+			forPackageUri(uri + "~" + version.split(".").shift() + "/source/snapshot/" + version);
+
+			// github.com/pinf/org.pinf.lib
+			// github.com~pinf~org.pinf.lib
+			var uri = packageUriParts.join("~");
+			forPackageUri(uri + "~0/source/installed/master");
+		}
+
+		if (
+			!packageFound() &&
+			!/\//.test(packageUri)
+		) {
+			var packageUriParts = packageUri.split("@");
+			if (packageUriParts.length <= 2) {
+
+				// org.pinf.lib
+				// org.pinf.lib@0.1.4
+				var version = (packageUriParts.length === 2) ? packageUriParts[1] : "0.0.0";
+				forPackageUri(packageUriParts[0] + "~" + version.split(".").shift());
+				forPackageUri(packageUriParts[0]);
+			}
+		}
+
 	}
 
 
@@ -296,14 +328,26 @@ exports.for = function (module) {
 	if (!from) from += ".";
 
 
-	var resolve = function (packageUri, moduleUri) {
+	var resolve = function (packageUri, moduleUri, options) {
 
-		return lookup(
+		var data = lookup(
 			origin,
 			from,
 			packageUri,
-			moduleUri
+			moduleUri,
+			options
 		);
+
+		return EXTEND(false, data, {
+			toPath: function () {
+				if (!data.found.package) return null;
+				return FS.realpathSync(PATH.join(
+					data.origin,
+					data.found.package,
+					data.found.module || ""
+				));
+			}
+		});
 	}
 
 
@@ -315,12 +359,13 @@ exports.for = function (module) {
 	}
 
 
-	resolve.uri = function (uri) {
+	resolve.uri = function (uri, options) {
 
 		// POLICY: The way to document expression matching.
 		//         We assign a namespace handler ($NSH) for comments in this closure.
 		//         Doc comments act as a dev aid and double as a unit test.
 		// $NSH "tools.pinf.CodePatterns/JavaScript/RegExp"
+
 		// @given uri="{{env.PGS_PACKAGES_DIRPATH}}/github.com~OpenGinseng~GinsengGenesisCore~0/source/installed/master/PINF.proto.json"
 		var m = uri.match(/^\{\{env\.PGS_PACKAGES_DIRPATH\}\}\/([^\/]+)\/source\/installed\/master\/?(.*)?$/);
 		if (m) {
@@ -328,14 +373,29 @@ exports.for = function (module) {
 				// @weget m[1]=="github.com~OpenGinseng~GinsengGenesisCore~0"
 				m[1] + "/source/installed/master",
 				// @weget m[2]=="/PINF.proto.json"
-				m[2]
+				m[2] || "",
+				options
 			);
 		}
 
-		return null;
+		// @given uri="{{__DIRNAME__}}/.deps/github.com~OpenGinseng~GinsengGenesisCore~0/source/installed/master"
+		var m = uri.match(/^\{\{__DIRNAME__\}\}\/\.deps\/([^\/]+)\/source\/installed\/master\/?(.*)?$/);
+		if (m) {
+			return resolve(
+				// @weget m[1]=="github.com~OpenGinseng~GinsengGenesisCore~0"
+				m[1] + "/source/installed/master",
+				// @weget m[2]==""
+				m[2] || "",
+				options
+			);
+		}
+
+		return resolve(null);
 	}
 
-	return resolve;
+	return EXTEND(false, resolve, {
+		SCOPE: SCOPE
+	});
 }
 
 

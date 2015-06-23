@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "main": "sm.resolve",
   "dependencies": {
+    "extend": "^2.0.1",
     "q": "^1.4.1"
   },
   "devDependencies": {
-	"bash.origin": "0.1.x",
+    "bash.origin": "0.1.x",
     "mocha": "^2.2.5"
   },
   "scripts": {
-  	"test": "./test"
+    "test": "./test"
   }
 }
