@@ -110,6 +110,11 @@ function lookup (origin, from, packageUri, moduleUri) {
 		// # 4) **Global** uris reference *Common Source-Space* modules.
 		// ##################################################
 
+		// NOTE: We search for packages in paths we expect them first.
+		//       This is not a lookup priority that enables overrides but rather
+		//       one that looks for common implementations FIRST.
+		//       To OVERRIDE the lookup paths see step (1) above.
+
 		function findPackageInGlobalBase (basePath, upverse, subs) {
 			if (!basePath) return;
 			if (packageFound()) return;
@@ -142,16 +147,20 @@ function lookup (origin, from, packageUri, moduleUri) {
 
 		findPackageInGlobalBase(process.env.BO_SYSTEM_CACHE_DIR);
 
-		// 4.4) Check in 'PGS_WORKSPACE_ROOT'
+		// 4.4) Check in 'BO_GLOBAL_SYSTEM_CACHE_DIR'
 
-		// TODO: Make '.deps' configurable
+		findPackageInGlobalBase(process.env.BO_GLOBAL_SYSTEM_CACHE_DIR);
+
+		// 4.5) Check in 'PGS_WORKSPACE_ROOT'
+
 		if (process.env.PGS_WORKSPACE_ROOT) {
+			// TODO: Make '.deps' configurable
 			findPackageInGlobalBase(PATH.join(process.env.PGS_WORKSPACE_ROOT, ".deps"), false, [
 				"node_modules"
 			]);
 		}
 
-		// 4.5) Check in 'from'
+		// 4.6) Check in 'from'
 
 		if (!packageFound() && info.from) {
 			findPackageInGlobalBase(PATH.join(info.origin, info.from), true, [
@@ -159,7 +168,7 @@ function lookup (origin, from, packageUri, moduleUri) {
 			]);
 		}
 
-		// 4.6) Check in 'origin'
+		// 4.7) Check in 'origin'
 
 		findPackageInGlobalBase(info.origin, true, [
 			"node_modules"
@@ -300,6 +309,26 @@ exports.for = function (module) {
 		return Q.resolve(resolve(packageUri, moduleUri));
 	}
 
+
+	resolve.uri = function (uri) {
+
+		// POLICY: The way to document expression matching.
+		//         We assign a namespace handler ($NSH) for comments in this closure.
+		//         Doc comments act as a dev aid and double as a unit test.
+		// $NSH "tools.pinf.CodePatterns/JavaScript/RegExp"
+		// @given uri="{{env.PGS_PACKAGES_DIRPATH}}/github.com~OpenGinseng~GinsengGenesisCore~0/source/installed/master/PINF.proto.json"
+		var m = uri.match(/^\{\{env\.PGS_PACKAGES_DIRPATH\}\}\/([^\/]+)\/source\/installed\/master(\/.*)?$/);
+		if (m) {
+			return resolve(
+				// @weget m[1]=="github.com~OpenGinseng~GinsengGenesisCore~0"
+				m[1] + "/source/installed/master",
+				// @weget m[2]=="/PINF.proto.json"
+				m[2]
+			);
+		}
+
+		return null;
+	}
 
 	return resolve;
 }
