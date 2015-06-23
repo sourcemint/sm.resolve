@@ -124,6 +124,8 @@ function lookup (origin, from, packageUri, moduleUri) {
 			if (findPackageInGlobalBase.paths[basePath]) return;
 			findPackageInGlobalBase.paths[basePath] = true;
 
+			log("findPackageInGlobalBase", basePath);
+
 			testPackageRepoSubs(basePath, subs);
 
 			if (upverse && !packageFound()) {
@@ -284,6 +286,9 @@ function lookup (origin, from, packageUri, moduleUri) {
 
 exports.for = function (module) {
 
+	log("CODEBASE", __dirname);
+	log("Using BO_GLOBAL_SYSTEM_CACHE_DIR:", process.env.BO_GLOBAL_SYSTEM_CACHE_DIR);
+
 	const PATH = require("path");
 
 	var origin = process.cwd();
@@ -317,7 +322,7 @@ exports.for = function (module) {
 		//         Doc comments act as a dev aid and double as a unit test.
 		// $NSH "tools.pinf.CodePatterns/JavaScript/RegExp"
 		// @given uri="{{env.PGS_PACKAGES_DIRPATH}}/github.com~OpenGinseng~GinsengGenesisCore~0/source/installed/master/PINF.proto.json"
-		var m = uri.match(/^\{\{env\.PGS_PACKAGES_DIRPATH\}\}\/([^\/]+)\/source\/installed\/master(\/.*)?$/);
+		var m = uri.match(/^\{\{env\.PGS_PACKAGES_DIRPATH\}\}\/([^\/]+)\/source\/installed\/master\/?(.*)?$/);
 		if (m) {
 			return resolve(
 				// @weget m[1]=="github.com~OpenGinseng~GinsengGenesisCore~0"
