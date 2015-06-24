@@ -321,8 +321,6 @@ exports.for = function (module) {
 	log("CODEBASE", __dirname);
 	log("Using BO_GLOBAL_SYSTEM_CACHE_DIR:", process.env.BO_GLOBAL_SYSTEM_CACHE_DIR);
 
-	const PATH = require("path");
-
 	var origin = process.cwd();
 	var from = PATH.relative(origin, module.filename);
 	if (!from) from += ".";
