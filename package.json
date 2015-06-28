@@ -2,6 +2,9 @@
     "name": "sm.resolve",
     "version": "0.1.1",
     "main": "sm.resolve",
+    "bin": {
+        "sm.resolve": "sm.resolve"
+    },
     "dependencies": {
         "extend": "^2.0.1",
         "q": "^1.4.1"

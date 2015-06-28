@@ -35,7 +35,7 @@ function formatLogArgs (args) {
 }
 
 function log () {
-	if (!process.env.VERBOSE) return;
+	if (!process.env.DEBUG) return;
 	var args = Array.prototype.slice.call(arguments);
 	console.log.call(console, "[sm.resolve]", formatLogArgs(args));
 }
@@ -67,9 +67,6 @@ function lookup (origin, from, packageUri, moduleUri, options) {
 		"found": {}
 	};
 
-	if (process.env.VERBOSE) {
-		process.stdout.write("\n\n");
-	}
 	log("Info before", info);
 
 	var scopes = {};
