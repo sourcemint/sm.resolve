@@ -17,7 +17,8 @@ const SCOPE = {
 	ALL: "all",
 	SYSTEMS: "systems",
 	SYSTEM: "system",
-	WORKSPACE: "workspace"
+	WORKSPACE: "workspace",
+	ORIGIN: "origin"
 };
 
 function formatLogArgs (args) {
@@ -74,6 +75,7 @@ function lookup (origin, from, packageUri, moduleUri, options) {
 		scopes[SCOPE.SYSTEMS] = true;
 		scopes[SCOPE.SYSTEM] = true;
 		scopes[SCOPE.WORKSPACE] = true;
+		scopes[SCOPE.ORIGIN] = true;
 	} else {
 		scopes[options.scope] = true;
 	}
@@ -189,7 +191,11 @@ function lookup (origin, from, packageUri, moduleUri, options) {
 
 		// 4.6) Check in 'from'
 
-		if (!packageFound() && info.from) {
+		if (
+			scopes[SCOPE.ORIGIN] &&
+			!packageFound() &&
+			info.from
+		) {
 			findPackageInGlobalBase(PATH.join(info.origin, info.from), true, [
 				"node_modules"
 			]);
@@ -197,9 +203,11 @@ function lookup (origin, from, packageUri, moduleUri, options) {
 
 		// 4.7) Check in 'origin'
 
-		findPackageInGlobalBase(info.origin, true, [
-			"node_modules"
-		]);
+		if (scopes[SCOPE.ORIGIN]) {
+			findPackageInGlobalBase(info.origin, true, [
+				"node_modules"
+			]);
+		}
 
 		// ##################################################
 		// # 5) **Fallback** uris reference *Virtual Source-Space* modules.
