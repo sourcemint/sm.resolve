@@ -1,6 +1,6 @@
 {
     "name": "sm.resolve",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "main": "sm.resolve",
     "bin": {
         "sm.resolve": "sm.resolve"
