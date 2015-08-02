@@ -36,7 +36,10 @@ function formatLogArgs (args) {
 }
 
 function log () {
-	if (!process.env.DEBUG) return;
+	if (
+		!process.env.DEBUG ||
+		!/;sm\.resolve;/.test(process.env.DEBUG)
+	) return;
 	var args = Array.prototype.slice.call(arguments);
 	console.log.call(console, "[sm.resolve]", formatLogArgs(args));
 }
